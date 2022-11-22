@@ -6,66 +6,65 @@ class GameTable():
         self.dealer = dealer
         self.pot = 0
         self.cardValues = self.dealer.deck
+        self.handValue = {}
         
     def first_deal(self):
-        setattr(self.player, 'hand', self.dealer.deal())
-        print(f'{self.player.hand}, {self.player.name.capitalize()}\'s hand\n')
-        print(self.dealer.hand)
+        self.player.hand = self.dealer.deal()
         print(f'{[self.dealer.hand[0],"FaceDown"]}, Dealer Hand\n')
 
     def playerTurn(self):
         while True:
             self.evaluate(self.player)
-            if 0 < self.value < 21 and True if input('Do you want to hit or Stay ? [H/S]:').lower() == 'h' else False:
-                self.player.hand.append(self.dealer.addCards())
-                self.evaluate(self.player)        
+            if 0 < self.handValue[self.player] < 21:
+                if input('Hit or Stay? [H/S]:').lower()=='h':
+                    self.player.hand.append(self.dealer.addCards())
+                else:
+                    break        
             else:
                 break
-
-    def evaluate(self,who):
-        # change setattr
-        try:
-            who.value += self.cardValues[who.hand[-1]]
-        except:
-            setattr(who, 'value', sum(self.cardValues[card] for card in who.hand))
-        print(f'{who.hand}\n{who.name} current value {who.value}\n')
-        if who.value > 21:
-            if 'ace' in who.hand:
-                who.value -= 10
-            else:
-                print(f'{who.name} Busts')
-                who.value=0
             
+    def evaluate(self,who):
+        self.handValue[who]= self.handValue.get(who, self.cardValues[who.hand[0]]) + self.cardValues[who.hand[-1]]
+        if self.handValue[who] > 21 and 'ace' in who.hand:
+            self.handValue[who] = sum(self.cardValues[card] for card in who.hand) - (10 * who.hand.count('ace'))
+        print(f'{who.name}\'s hand value {self.handValue[who]}\n{who.hand}\n')
+        if self.handValue[who] > 21:
+            print(f'{who.name} Busts')
+            self.handValue[who]=0
+            print(self.handValue[who])
+    
     def dealerTurn(self):
         while True:
             self.evaluate(self.dealer)
-            if 0 < self.dealer.value < 17:
+            if 0 < self.handValue[self.dealer] < 17:
                 self.dealer.hand.append(self.dealer.addCards())
-                self.dealer.value += self.cardValues[self.dealer.hand[-1]]
             else:
                 break
     
     def winner(self):
-        if self.player.value > self.dealer.value:
+        if self.handValue[self.player] > self.handValue[self.dealer]:
             self.player.cash += self.pot
             print(f'{self.player.name} wins\n\nNew Wallet: {self.player.cash}')
+        elif self.handValue[self.player] < self.handValue[self.dealer]:
+            print(f"{self.dealer.name} Wins")
         else:
-            print("Dealer Wins")
-        self.pot= 0
-        self.player.value,self.dealer.value,self.dealer.hand,self.player.hand = 0,0,[],[]
+            print('Push you Get your Bet back')
+            self.player.cash += self.pot  // 2
+        self.player.pot= 0
+        del self.handValue[self.player]
+        del self.handValue[self.dealer]
+        self.dealer.hand,self.player.hand = [],[]
 
     def continuePlaying(self):
         continuePlaying = input('Would you Like to Play a Hand Of BlackJack? [Y/N]: ').lower()
-        print(continuePlaying)
+        self.player.bet()
         if continuePlaying == 'n' or continuePlaying == 'no':
             print(f'{self.player.name} thank you for playing\nYou currently have ${self.player.cash}')
         else:
             return True 
         
-    def driver(self, first=True):
+    def driver(self):
         while self.continuePlaying():
-            self.pot = self.player.bet() * 2
-            print(f'Current Pot: {self.pot}\n')
             self.first_deal()
             self.playerTurn()
             self.dealerTurn()
@@ -118,8 +117,9 @@ class Player():
                     while bet > self.cash:
                         self.addCash()
                     self.cash -= bet
-                    print(f'{self.name}\'s wallet: ${self.cash}\n')
-                    return bet
+                    self.pot = bet * 2
+                    print(f'{self.name}\'s wallet: ${self.cash}\nCurrent Pot: {self.pot}\n')
+                    return
                 else:
                     print('Please enter number amount\n')
         return False
